@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>抖音解析 · Douyin Parser</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: #0f0f0f; color: #e0e0e0; min-height: 100vh;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .container { width: 100%; max-width: 640px; padding: 24px; }
+  h1 {
+    text-align: center; font-size: 24px; margin-bottom: 8px;
+    background: linear-gradient(135deg, #fe2c55, #25f4ee); -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .sub { text-align: center; color: #888; font-size: 13px; margin-bottom: 24px; }
+  .input-group { display: flex; gap: 10px; margin-bottom: 20px; }
+  input {
+    flex: 1; padding: 12px 16px; border-radius: 12px; border: 1px solid #333;
+    background: #1a1a1a; color: #fff; font-size: 15px; outline: none;
+    transition: border .2s;
+  }
+  input:focus { border-color: #fe2c55; }
+  input::placeholder { color: #555; }
+  button {
+    padding: 12px 24px; border-radius: 12px; border: none;
+    background: #fe2c55; color: #fff; font-size: 15px; font-weight: 600;
+    cursor: pointer; transition: opacity .2s;
+  }
+  button:hover { opacity: .85; }
+  button:disabled { opacity: .4; cursor: not-allowed; }
+  .loading { text-align: center; color: #888; margin: 16px 0; display: none; }
+  .error { background: #2a1010; border: 1px solid #fe2c55; border-radius: 12px;
+    padding: 16px; color: #fe2c55; margin-top: 16px; display: none; white-space: pre-wrap; }
+  .result { display: none; margin-top: 16px; }
+  .card {
+    background: #1a1a1a; border-radius: 16px; padding: 20px; margin-bottom: 16px;
+    border: 1px solid #2a2a2a;
+  }
+  .card h3 { font-size: 14px; color: #888; margin-bottom: 12px; text-transform: uppercase; letter-spacing: 1px; }
+  .meta { color: #aaa; font-size: 13px; margin-bottom: 12px; line-height: 1.6; }
+  .stats { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 12px; }
+  .stat { font-size: 12px; color: #666; }
+  .stat b { color: #ccc; }
+  .url-list { max-height: 300px; overflow-y: auto; }
+  .url-item {
+    background: #111; border-radius: 8px; padding: 10px 12px; margin-bottom: 6px;
+    font-size: 12px; word-break: break-all; position: relative;
+  }
+  .url-item .label { font-size: 10px; color: #666; margin-bottom: 4px; }
+  .url-item a { color: #25f4ee; text-decoration: none; }
+  .url-item a:hover { text-decoration: underline; }
+  .copy-btn {
+    position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
+    background: #333; border: none; color: #aaa; padding: 4px 10px; border-radius: 6px;
+    font-size: 11px; cursor: pointer;
+  }
+  .copy-btn:hover { background: #444; color: #fff; }
+  .tag {
+    display: inline-block; padding: 2px 8px; border-radius: 6px; font-size: 11px;
+    font-weight: 600;
+  }
+  .tag-video { background: #1a2a2a; color: #25f4ee; }
+  .tag-image { background: #2a1a2a; color: #d44; }
+  .footer { text-align: center; color: #444; font-size: 11px; margin-top: 32px; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>🎵 抖音解析</h1>
+  <p class="sub">粘贴抖音分享链接，提取无水印图片/视频</p>
+
+  <div class="input-group">
+    <input type="text" id="input" placeholder="https://v.douyin.com/xxxxx/ 或 口令" autofocus>
+    <button id="btn" onclick="doParse()">解析</button>
+  </div>
+
+  <div class="loading" id="loading">⏳ 解析中...</div>
+  <div class="error" id="error"></div>
+  <div class="result" id="result"></div>
+
+  <p class="footer">仅供学习使用</p>
+</div>
+
+<script>
+async function doParse() {
+  const input = document.getElementById('input');
+  const btn = document.getElementById('btn');
+  const loading = document.getElementById('loading');
+  const error = document.getElementById('error');
+  const result = document.getElementById('result');
+
+  const val = input.value.trim();
+  if (!val) return;
+
+  btn.disabled = true;
+  loading.style.display = 'block';
+  error.style.display = 'none';
+  result.style.display = 'none';
+
+  try {
+    const res = await fetch('/api/parse', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url: val })
+    });
+    const data = await res.json();
+    loading.style.display = 'none';
+    btn.disabled = false;
+
+    if (data.error) {
+      error.textContent = data.error;
+      error.style.display = 'block';
+      return;
+    }
+
+    renderResult(data);
+    result.style.display = 'block';
+  } catch (e) {
+    loading.style.display = 'none';
+    btn.disabled = false;
+    error.textContent = '网络错误: ' + e.message;
+    error.style.display = 'block';
+  }
+}
+
+function renderResult(data) {
+  const result = document.getElementById('result');
+  const typeTag = data.aweme_type === 0
+    ? '<span class="tag tag-video">视频</span>'
+    : '<span class="tag tag-image">图集</span>';
+
+  let html = '<div class="card">';
+  html += '<h3>📋 作品信息</h3>';
+  html += '<div class="meta">';
+  html += '<div style="font-size:15px;color:#fff;margin-bottom:4px">' + esc(data.desc) + '</div>';
+  if (data.author) html += '<div>作者: ' + esc(data.author.nickname) + ' (@' + esc(data.author.unique_id) + ')</div>';
+  html += '<div>类型: ' + typeTag + '</div>';
+  html += '<div class="stats">';
+  if (data.statistics) {
+    if (data.statistics.digg_count != null) html += '<span class="stat">❤️ <b>' + fmt(data.statistics.digg_count) + '</b></span>';
+    if (data.statistics.comment_count != null) html += '<span class="stat">💬 <b>' + fmt(data.statistics.comment_count) + '</b></span>';
+    if (data.statistics.share_count != null) html += '<span class="stat">↗️ <b>' + fmt(data.statistics.share_count) + '</b></span>';
+    if (data.statistics.collect_count != null) html += '<span class="stat">⭐ <b>' + fmt(data.statistics.collect_count) + '</b></span>';
+  }
+  html += '</div></div></div>';
+
+  if (data.video) {
+    html += '<div class="card"><h3>🎬 视频直链</h3><div class="url-list">';
+    html += urls('播放地址 (无水印)', data.video.play);
+    if (data.video.download?.length) html += urls('下载地址', data.video.download);
+    html += '</div></div>';
+  }
+
+  if (data.music?.play_url?.length) {
+    html += '<div class="card"><h3>🎵 背景音乐</h3><div class="url-list">';
+    html += urls('MP3', data.music.play_url);
+    html += '</div></div>';
+  }
+
+  if (data.images.length) {
+    html += '<div class="card"><h3>🖼️ 图片直链 (' + data.images.length + '张)</h3>';
+    data.images.forEach((img, i) => {
+      html += '<div style="margin-bottom:12px"><div style="color:#aaa;font-size:12px;margin-bottom:4px">图片 ' + (i+1) + ' (' + img.width + '\xD7' + img.height + ')</div>';
+      html += '<details style="margin-bottom:6px"><summary style="color:#25f4ee;cursor:pointer;font-size:12px">无水印</summary><div class="url-list" style="margin-top:6px">';
+      html += urls('', img.no_watermark);
+      html += '</div></details>';
+      html += '<details><summary style="color:#888;cursor:pointer;font-size:12px">有水印</summary><div class="url-list" style="margin-top:6px">';
+      html += urls('', img.with_watermark);
+      html += '</div></details></div>';
+    });
+    html += '</div>';
+  }
+
+  result.innerHTML = html;
+}
+
+function urls(label, list) {
+  return list.map(u => '<div class="url-item"><div class="label">' + (label || '直链') + '</div><a href="' + u + '" target="_blank">' + u + '</a><button class="copy-btn" onclick="copyUrl(this)">复制</button></div>').join('');
+}
+
+function copyUrl(btn) {
+  const url = btn.parentElement.querySelector('a').href;
+  navigator.clipboard.writeText(url).then(() => {
+    btn.textContent = '\u2713';
+    setTimeout(() => btn.textContent = '复制', 1500);
+  });
+}
+
+function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+function fmt(n) { return n >= 10000 ? (n/10000).toFixed(1) + 'w' : n; }
+
+document.getElementById('input').addEventListener('keydown', e => { if (e.key === 'Enter') doParse(); });
+</script>
+</body>
+</html>

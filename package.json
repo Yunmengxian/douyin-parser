@@ -1,0 +1,6 @@
+{
+  "name": "douyin-parser",
+  "version": "1.0.0",
+  "private": true,
+  "description": "抖音分享链接解析器 - 提取无水印图片/视频直链"
+}
